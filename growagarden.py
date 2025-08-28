@@ -260,6 +260,7 @@ while True:
                 money += value
                 total_earned += value
                 print(f"Sold {item} for ${value}")
+                grownitems.remove(sellwhat)
             else:
                 print("You don't have that item.")
         print("Total earned:", total_earned)
