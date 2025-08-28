@@ -1,7 +1,8 @@
 # Grow A Garden in Python
 # (c) Abradee 2025
 # GPL v3 License
-# v3.6 THE MUTATIONS UPDATE (And minor bug fixes)
+# v3.7, More the Merrier Update (+ Bug Fixes)
+# https://abradee.github.io/growagarden/ for more info about the game (not done yet)
 
 import time
 import random
@@ -17,7 +18,7 @@ def osdetect():
         print("\n\nWARNING: Save files do not work on your version.\nFor them to work, use a Windows PC\n\n")
 
 # Save/Load system
-SAVE_FILE = "save.growagarden"
+SAVE_FILE = "save.growagarden"  # Change if you want a different file type or to use a different save file.
 
 def save_game():
     print("Saving game...")
@@ -27,16 +28,14 @@ def save_game():
         "plantingitems": plantingitems,
         "money": money,
         "last_restock_time": last_restock_time,
-        "shop_stock": shop_stock,
-        "mutated_prices": mutated_prices,
-        "last_mutation_time": last_mutation_time
+        "shop_stock": shop_stock
     }
     with open(SAVE_FILE, "w") as file:
         json.dump(save_data, file)
     print("Game saved.")
 
 def load_game():
-    global grownitems, inventory, plantingitems, money, last_restock_time, shop_stock, mutated_prices, last_mutation_time
+    global grownitems, inventory, plantingitems, money, last_restock_time, shop_stock
     if os.path.exists(SAVE_FILE):
         with open(SAVE_FILE, "r") as file:
             save_data = json.load(file)
@@ -46,8 +45,6 @@ def load_game():
             money = float(save_data.get("money", 0.0))
             last_restock_time = float(save_data.get("last_restock_time", time.time()))
             shop_stock = save_data.get("shop_stock", {})
-            mutated_prices = save_data.get("mutated_prices", {})
-            last_mutation_time = save_data.get("last_mutation_time", time.time())
         print("Save loaded from", SAVE_FILE)
     else:
         print("No save file found, starting new game.")
@@ -65,23 +62,30 @@ plantingitems = []
 money = 0.0
 shop_stock = {}
 last_restock_time = time.time()
-restock_interval = 120.0
-autosave_interval = 30.0
+restock_interval = 120.0  # 2 minutes
+autosave_interval = 30.0  # 30 seconds
 last_autosave_time = time.time()
-last_mutation_time = time.time()
 crasha = False
 total_earned = 0.0
-mutated_prices = {}
 
-# Mutation settings
+
 mutations = [
-    "obama", "moonlit", "touched by god", "silver",
-    "golden", "platinum", "sigma", "lava", "touched jaymin rolls"
+    "obama",
+    "moonlit", 
+    "touched by god",
+    "silver",
+    "golden",
+    "platinum",
+    "sigma",
+    "lava",
+    "touched jaymins rolls",
+    "windstruck",
+    "",
 ]
-mutationinterval = 300  # seconds
-mutation_chance = random.randint(0.0, 1.0)  # 15% chance every interval per item
+mutatechance = random.randint(0,10)
+mutationinterval = 300
+lastmutation = 0
 
-# Plant data
 plant_data = {
     "carrot": {"seed_price": 5.0, "sell_price": 10.0},
     "potato": {"seed_price": 8.0, "sell_price": 15.0},
@@ -99,22 +103,34 @@ plant_data = {
     "giant pinecone": {"seed_price": 350.0, "sell_price": 400.0},
     "romanesco": {"seed_price": 500.0, "sell_price": 1500.0},
     "dih": {"seed_price": 1.0, "sell_price": 50000.0},
-    "jaymin": {"seed_price": 10000.0, "sell_price": -10.0},
+    "jaymin": {"seed_price": 10000, "sell_price": -10.0},
 }
 
-# Weighted randomness for shop restock
 item_weights = {
-    "carrot": 100.0, "potato": 30.0, "tomato": 15.0, "strawberry": 10.0,
-    "pumpkin": 12.0, "dragonfruit": 6.0, "blueberry": 60.0, "beanstalk": 20.0,
-    "cocoa": 18.0, "ember lily": 15.0, "sugar apple": 13.0, "burning bud": 10.0,
-    "elder strawberry": 6.0, "giant pinecone": 5.0, "romanesco": 2.0,
-    "dih": 0.001, "jaymin": 0.000000001
+    "carrot": 100.0,
+    "potato": 30.0,
+    "tomato": 15.0,
+    "strawberry": 10.0, 
+    "pumpkin": 12.0,     
+    "dragonfruit": 6.0,
+    "blueberry": 60.0,
+    "beanstalk": 20.0,
+    "cocoa": 18.0,
+    "ember lily": 15.0,
+    "sugar apple": 13.0,
+    "burning bud": 10.0,
+    "elder strawberry": 6.0,
+    "giant pinecone": 5.0,
+    "romanesco": 2.0,
+    "dih": 0.001,
+    "jaymin": 2,
 }
 
-# Restock shop
+# Restock shop with weighted randomness (supports floats)
 def restock_shop():
     global shop_stock, last_restock_time
     shop_stock.clear()
+
     items = list(item_weights.keys())
     weights = list(item_weights.values())
 
@@ -127,38 +143,17 @@ def restock_shop():
     last_restock_time = time.time()
     print("\nThe shop has been restocked!\n")
 
-# Mutation logic: every interval, mutate random grown crops
-def do_mutations():
-    global last_mutation_time
-    if time.time() - last_mutation_time < mutationinterval:
-        return
-    last_mutation_time = time.time()
-
-    if not grownitems:
-        return
-
-    for i in range(len(grownitems)):
-        if random.random() < mutation_chance:
-            item = grownitems[i]
-            if any(item.startswith(m) for m in mutations):
-                continue  # skip if already mutated
-            mutation_type = random.choice(mutations)
-            new_name = f"{mutation_type} {item}"
-            grownitems[i] = new_name
-            boost = random.uniform(2.0, 5.0)
-            base_price = plant_data[item]["sell_price"] if item in plant_data else 10.0
-            mutated_prices[new_name] = base_price * boost
-            print(f"Mutation! {item} has become {new_name} worth ${mutated_prices[new_name]:.2f}")
-
-# Load save if exists
+# Load game if possible
 load_game()
+
+# If shop is empty, restock initially
 if not shop_stock:
     restock_shop()
 
 # Main game loop
 while True:
-    if crasha:
-        while crasha:
+    if crasha == True:
+        while crasha == True:
             print("pow pow!!")
     current_time = time.time()
 
@@ -170,9 +165,14 @@ while True:
     if current_time - last_autosave_time > autosave_interval:
         save_game()
         last_autosave_time = current_time
-
-    # Timed mutations
-    do_mutations()
+    
+    # Mutate every 300 seconds
+    if current_time - lastmutation > mutationinterval:
+        mutatechance = random.randint(0,1)
+        if mutatechance == 1:
+            lastmutation = current_time
+            
+            
 
     cmd = input("Type 'help' for help: ").strip().lower()
 
@@ -199,6 +199,7 @@ while True:
 
             choice = input("Enter the number of the item to buy (or 'exit'): ").strip()
             if choice.lower() == "exit":
+                print("Leaving the shop.")
                 continue
             if not choice.isdigit() or not (1 <= int(choice) <= len(seed_list)):
                 print("Invalid choice.")
@@ -240,8 +241,8 @@ while True:
                 for pct in range(0, 101, 10):
                     print(f"{pct}%")
                     time.sleep(random.uniform(0.3, 1.6))
-                grownitems.append(plant)
                 print(f"Your {plant} is fully grown! Sell it with the command 'sell'")
+                grownitems.append(plant)
                 seeds_planted = True
         if not seeds_planted:
             print("You have no seeds to plant!")
@@ -252,18 +253,13 @@ while True:
         else:
             total_earned = 0.0
             sellwhat = input("What do you want to sell: ").strip().lower()
-            if sellwhat in [g.lower() for g in grownitems]:
-                actual_name = next(g for g in grownitems if g.lower() == sellwhat)
-                if actual_name in mutated_prices:
-                    value = mutated_prices[actual_name]
-                else:
-                    base_plant = actual_name.split()[-1] if any(actual_name.startswith(m) for m in mutations) else actual_name
-                    value = plant_data.get(base_plant, {"sell_price": 10.0})["sell_price"]
-
+            if sellwhat in grownitems:
+                
+                item = sellwhat
+                value = plant_data[item]["sell_price"]
                 money += value
                 total_earned += value
-                grownitems.remove(actual_name)
-                print(f"Sold {actual_name} for ${value:.2f}")
+                print(f"Sold {item} for ${value}")
             else:
                 print("You don't have that item.")
         print("Total earned:", total_earned)
@@ -273,11 +269,11 @@ while True:
         print("Inventory:", inventory)
         print("Grown Items:", grownitems)
         print("Money:", money)
-
-    elif cmd == "save":
+    
+    if cmd == "save":
         save_game()
-
-    elif cmd == "crasha":
+    
+    if cmd == "crasha":
         confirm = input("Are you sure? (y/n)").strip().lower()
         if confirm == "y":
             print("Enabling in 2 seconds...")
@@ -286,13 +282,18 @@ while True:
             print("Hit enter.")
         if confirm == "n":
             print("Ok.")
-
-    elif cmd == "info":
+            
+    if cmd == "info":
         print("Game info:")
+        print(" ")
         print("Most info at https://abradee.github.io")
         print("Do help for a list of commands")
 
+
+    
     elif cmd == "quit":
         save_game()
         print("Thanks for playing! Goodbye.")
         break
+    
+    
